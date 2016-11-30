@@ -17,6 +17,9 @@
 #include "src/snapshot/code-serializer.h"
 #include "src/snapshot/natives.h"
 #include "src/wasm/wasm-module.h"
+#include "src/parsing/parse-info.h"
+#include "src/parsing/parser.h"
+#include "src/parsing/rewriter.h"
 
 namespace v8 {
 namespace internal {
@@ -598,9 +601,70 @@ void PrintIndentation(Isolate* isolate) {
 RUNTIME_FUNCTION(Runtime_TraceEnter) {
   SealHandleScope shs(isolate);
   DCHECK_EQ(0, args.length());
-  PrintIndentation(isolate);
-  JavaScriptFrame::PrintTop(isolate, stdout, true, false);
-  PrintF(" {\n");
+  // PrintIndentation(isolate);
+  // JavaScriptFrame::PrintTop(isolate, stdout, true, false);
+  // PrintF(" {\n");
+  // isolate->PrintCurrentStackTrace(stdout);
+
+  // GRMTrace
+  for (StackTraceFrameIterator it(isolate); !it.done(); it.Advance()) {
+    if (!it.is_javascript()) continue;
+
+    HandleScope scope(isolate);
+    JavaScriptFrame* frame = it.javascript_frame();
+
+
+    // Handle<AbstractCode> code(AbstractCode::cast(frame->LookupCode()), isolate);
+    // fprintf(stderr,"-----------------------------\n");
+    // fprintf(stderr,"[Runtime_TraceEnter]:%llx\n",frame->pc());
+
+    // break;
+ 
+
+
+    Handle<Object> receiver(frame->receiver(), isolate);
+    Handle<JSFunction> function(frame->function(), isolate);
+    Handle<AbstractCode> code(AbstractCode::cast(frame->LookupCode()), isolate);
+    const int offset =
+        static_cast<int>(frame->pc() - code->instruction_start());
+    
+    // fprintf(stderr,"-----------------------------\n");
+    // fprintf(stderr,"[Runtime_TraceEnter]:%llx\n",frame->pc());
+
+    // break;
+    __attribute__((visibility("default"))) void _I() __asm__("__asan_reset_mscope"); _I();
+    JSStackFrame site(isolate, receiver, function, code, offset);
+    Handle<String> line = site.ToString().ToHandleChecked();
+    if (line->length() > 0) {
+      // GRMTrace
+      fprintf(stderr,"-----------------------------\n");
+      fprintf(stderr,"[Runtime_TraceEnter]:%s#%d#%d\n",Handle<String>::cast(site.GetFileName())->ToCString().get(),site.GetLineNumber(),site.GetColumnNumber());
+      // GRMTrace
+      // if (IsNonEmptyString(file_name)) {
+      //   builder->AppendString(Handle<String>::cast(file_name));
+      // } else {
+      //   // Source code does not originate from a file and is not native, but we
+      //   // can still get the source position inside the source string, e.g. in
+      //   // an eval string.
+      //   builder->AppendCString("<anonymous>");
+      // }
+
+      // line->PrintOn(stdout);
+      // fprintf(stderr,"\n");
+      // site.GetFileName();
+      // site.GetLineNumber();
+      // site.GetColumnNumber();
+      // PrintF("-----------------------------\n");
+      break;
+    }
+  }
+
+
+  // GRMTrace
+
+
+
+
   return isolate->heap()->undefined_value();
 }
 
@@ -609,18 +673,65 @@ RUNTIME_FUNCTION(Runtime_TraceExit) {
   SealHandleScope shs(isolate);
   DCHECK_EQ(1, args.length());
   CONVERT_ARG_CHECKED(Object, obj, 0);
-  PrintIndentation(isolate);
-  PrintF("} -> ");
-  obj->ShortPrint();
-  PrintF("\n");
+  // PrintIndentation(isolate);
+  // PrintF("} -> ");
+  // obj->ShortPrint();
+  // PrintF("\n");
+  // isolate->PrintCurrentStackTrace(stdout);
+
+
+  // for (StackTraceFrameIterator it(isolate); !it.done(); it.Advance()) {
+  //   if (!it.is_javascript()) continue;
+
+  //   HandleScope scope(isolate);
+  //   JavaScriptFrame* frame = it.javascript_frame();
+
+  //   Handle<Object> receiver(frame->receiver(), isolate);
+  //   Handle<JSFunction> function(frame->function(), isolate);
+  //   Handle<AbstractCode> code(AbstractCode::cast(frame->LookupCode()), isolate);
+  //   const int offset =
+  //       static_cast<int>(frame->pc() - code->instruction_start());
+
+  //   JSStackFrame site(isolate, receiver, function, code, offset);
+  //   Handle<String> line = site.ToString().ToHandleChecked();
+  //   if (line->length() > 0) {
+  //     PrintF("[Runtime_TraceExit] : ");
+  //     line->PrintOn(stdout);
+  //     PrintF("\n");
+  //   }
+  // }
+
+
   return obj;  // return TOS
 }
 
 RUNTIME_FUNCTION(Runtime_TraceTailCall) {
   SealHandleScope shs(isolate);
   DCHECK_EQ(0, args.length());
-  PrintIndentation(isolate);
-  PrintF("} -> tail call ->\n");
+  // PrintIndentation(isolate);
+  // PrintF("} -> tail call ->\n");
+
+  // for (StackTraceFrameIterator it(isolate); !it.done(); it.Advance()) {
+  //   if (!it.is_javascript()) continue;
+
+  //   HandleScope scope(isolate);
+  //   JavaScriptFrame* frame = it.javascript_frame();
+
+  //   Handle<Object> receiver(frame->receiver(), isolate);
+  //   Handle<JSFunction> function(frame->function(), isolate);
+  //   Handle<AbstractCode> code(AbstractCode::cast(frame->LookupCode()), isolate);
+  //   const int offset =
+  //       static_cast<int>(frame->pc() - code->instruction_start());
+
+  //   JSStackFrame site(isolate, receiver, function, code, offset);
+  //   Handle<String> line = site.ToString().ToHandleChecked();
+  //   if (line->length() > 0) {
+  //     PrintF("[Runtime_TraceTailCall] : ");
+  //     line->PrintOn(stdout);
+  //     PrintF("\n");
+  //   }
+  // }
+
   return isolate->heap()->undefined_value();
 }
 

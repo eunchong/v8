@@ -4,9 +4,12 @@
 
 #include "src/source-position-table.h"
 
+#include "src/base/platform/platform.h"
+#include "src/compilation-info.h"
 #include "src/log.h"
 #include "src/objects-inl.h"
 #include "src/objects.h"
+#include "src/frames-inl.h"
 
 namespace v8 {
 namespace internal {
@@ -133,16 +136,93 @@ void SourcePositionTableBuilder::AddEntry(const PositionTableEntry& entry) {
 }
 
 Handle<ByteArray> SourcePositionTableBuilder::ToSourcePositionTable(
-    Isolate* isolate, Handle<AbstractCode> code) {
+    Isolate* isolate, Handle<AbstractCode> code,CompilationInfo* info) {
   if (bytes_.empty()) return isolate->factory()->empty_byte_array();
   DCHECK(!Omit());
 
+  // DisallowHeapAllocation no_allocation;
+  // SharedFunctionInfo* shared = NULL;
+  Handle<SharedFunctionInfo> shared;
+  bool is_shared = false;
+  JavaScriptFrameIterator it(isolate);
+  // JavaScriptFrame::PrintTop(isolate, stdout, false, true);
+
+  //     Handle<SharedFunctionInfo> shared = info->shared_info();
+  //     // Handle<Script> script = info->script();
+
+
+  if(info) {
+    bool print_source =
+        info->parse_info() && (code->kind() == Code::OPTIMIZED_FUNCTION ||
+                               code->kind() == Code::FUNCTION);
+    if (print_source) {
+      // shared = SharedFunctionInfo::cast(info->shared_info());
+      shared = info->shared_info();
+      is_shared = true;
+    }
+  } else {
+    while (!it.done()) {
+      if (it.frame()->is_java_script()) {
+        JavaScriptFrame* frame = it.frame();
+        // frame->function();
+        // PrintF("is_java_script()\n");
+
+        // shared = frame->function()->shared();
+        shared = Handle<SharedFunctionInfo>(frame->function()->shared());
+        is_shared = true;
+        break;
+      }
+      it.Advance();
+    }
+  }
+
   Handle<ByteArray> table = isolate->factory()->NewByteArray(
       static_cast<int>(bytes_.size()), TENURED);
+  // PrintF("SourcePositionTableBuilder::ToSourcePositionTable : %llx\n",code->instruction_start());
 
   MemCopy(table->GetDataStartAddress(), &*bytes_.begin(), bytes_.size());
 
   LOG_CODE_EVENT(isolate, CodeLinePosInfoRecordEvent(*code, *table));
+
+  // PrintF("%d\n",SHADOW_MID_SCALE);
+  // __asan_Printf(1,2);
+  __attribute__((visibility("default"))) void _I(unsigned long long,unsigned long long,unsigned int) __asm__("__asan_poison_mid_shadow"); _I((unsigned long long)code->instruction_start(),(unsigned long long)code->instruction_size(),-1);
+  // GRMTrace
+  Script* script;
+  if(is_shared)
+  {
+    Object* maybe_script = shared->script();
+    if (maybe_script->IsScript()) {
+      script = Script::cast(maybe_script);
+      Object* script_name_raw = script->name();
+      if (script_name_raw->IsString()) {
+        String* script_name = String::cast(script->name());
+        std::unique_ptr<char[]> c_script_name =
+            script_name->ToCString(DISALLOW_NULLS, ROBUST_STRING_TRAVERSAL);
+        base::OS::FPrint((isolate)->logger()->CodeInfoGetFP(), "01:%llx:%llx:%s\n", code->instruction_start(),code->instruction_end(),c_script_name.get());
+        // PrintF(" !!at %s:%d,%d\n", c_script_name.get(), line,column_num);      
+      } else {
+        // PrintF(" !!at <unknown>:%d,%d\n", line,column_num);
+      }
+    } else {
+      // PrintF(" !!at <unknown>:<unknown>");
+    }
+  }
+  // GRMTrace
+  // GRMTrace
+  for (SourcePositionTableIterator encoded(*table); !encoded.done();
+       encoded.Advance()) {
+    // PrintF("SourcePositionTableBuilder::ToSourcePositionTable : %llx,%llx,%d\n",code->instruction_start(),code->instruction_start()+encoded.code_offset(),encoded.source_position());
+    if(is_shared)
+    {      
+      int source_pos = encoded.source_position();
+      int line = script->GetLineNumber(source_pos) + 1;
+      int column_num = script->GetColumnNumber(Handle<Script>(script),source_pos) + 1;
+      base::OS::FPrint((isolate)->logger()->CodeInfoGetFP(), "02:%llx:%d:%d\n", code->instruction_start()+encoded.code_offset(),line,column_num);
+    }
+
+  }
+  // GRMTrace
 
 #ifdef ENABLE_SLOW_DCHECKS
   // Brute force testing: Record all positions and decode

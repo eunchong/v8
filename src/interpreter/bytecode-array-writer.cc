@@ -44,9 +44,10 @@ Handle<BytecodeArray> BytecodeArrayWriter::ToBytecodeArray(
       bytecode_size, &bytecodes()->front(), frame_size, parameter_count,
       constant_pool);
   bytecode_array->set_handler_table(*handler_table);
+  // PrintF("BytecodeArrayWriter::ToBytecodeArray :: ToSourcePositionTable\n");
   Handle<ByteArray> source_position_table =
       source_position_table_builder()->ToSourcePositionTable(
-          isolate, Handle<AbstractCode>::cast(bytecode_array));
+          isolate, Handle<AbstractCode>::cast(bytecode_array),NULL);
   bytecode_array->set_source_position_table(*source_position_table);
   return bytecode_array;
 }

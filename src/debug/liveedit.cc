@@ -1116,9 +1116,8 @@ void TranslateSourcePositionTable(Handle<AbstractCode> code,
     builder.AddPosition(iterator.code_offset(), new_position,
                         iterator.is_statement());
   }
-
   Handle<ByteArray> new_source_position_table(
-      builder.ToSourcePositionTable(isolate, code));
+      builder.ToSourcePositionTable(isolate, code,NULL));
   code->set_source_position_table(*new_source_position_table);
 }
 }  // namespace

@@ -278,6 +278,80 @@ void PerfBasicLogger::LogRecordedBuffer(AbstractCode* code, SharedFunctionInfo*,
                    code->instruction_size(), length, name);
 }
 
+
+// GRLOG, CODE LINE INFORMATION
+class GrCodeInfoLogger : public CodeEventLogger {
+ public:
+  GrCodeInfoLogger();
+  ~GrCodeInfoLogger() override;
+  FILE* getFP();
+  void CodeMoveEvent(AbstractCode* from, Address to) override {}
+  void CodeDisableOptEvent(AbstractCode* code,
+                           SharedFunctionInfo* shared) override {}
+
+ private:
+  void LogRecordedBuffer(AbstractCode* code, SharedFunctionInfo* shared,
+                         const char* name, int length) override;
+
+  // Extension added to V8 log file name to get the low-level log name.
+  static const char kFilenameFormatString[];
+  static const int kFilenameBufferPadding;
+
+  FILE* code_info_output_handle_;
+};
+
+const char GrCodeInfoLogger::kFilenameFormatString[] = "/tmp/GrCodeInfo-%d.map";
+// Extra space for the PID in the filename
+const int GrCodeInfoLogger::kFilenameBufferPadding = 16;
+
+GrCodeInfoLogger::GrCodeInfoLogger()
+    : code_info_output_handle_(NULL) {
+  // Open the perf JIT dump file.
+  int bufferSize = sizeof(kFilenameFormatString) + kFilenameBufferPadding;
+  ScopedVector<char> code_info_dump_name(bufferSize);
+  int size = SNPrintF(
+      code_info_dump_name,
+      kFilenameFormatString,
+      base::OS::GetCurrentProcessId());
+  CHECK_NE(size, -1);
+  code_info_output_handle_ =
+      base::OS::FOpen(code_info_dump_name.start(), base::OS::LogFileOpenMode);
+  CHECK_NOT_NULL(code_info_output_handle_);
+  setvbuf(code_info_output_handle_, NULL, _IOLBF, 0);
+}
+
+
+GrCodeInfoLogger::~GrCodeInfoLogger() {
+  fclose(code_info_output_handle_);
+  code_info_output_handle_ = NULL;
+}
+
+FILE* GrCodeInfoLogger::getFP() {
+  return code_info_output_handle_;
+}
+void GrCodeInfoLogger::LogRecordedBuffer(AbstractCode* code, SharedFunctionInfo*,
+                                        const char* name, int length) {
+  // if (FLAG_perf_basic_prof_only_functions &&
+  //     (code->kind() != AbstractCode::FUNCTION &&
+  //      code->kind() != AbstractCode::INTERPRETED_FUNCTION &&
+  //      code->kind() != AbstractCode::OPTIMIZED_FUNCTION)) {
+  //   return;
+  // }
+
+  // Linux perf expects hex literals without a leading 0x, while some
+  // implementations of printf might prepend one when using the %p format
+  // for pointers, leading to wrongly formatted JIT symbols maps.
+  //
+  // Instead, we use V8PRIxPTR format string and cast pointer to uintpr_t,
+  // so that we have control over the exact output format.
+  // #include "src/base/platform/platform.h"
+  // base::OS::FPrint(code_info_output_handle_, "%" V8PRIxPTR " %x %.*s\n",
+  //                  reinterpret_cast<uintptr_t>(code->instruction_start()),
+  //                  code->instruction_size(), length, name);
+  return; 
+}
+
+
 // Low-level logging support.
 #define LL_LOG(Call) if (ll_logger_) ll_logger_->Call;
 
@@ -739,6 +813,7 @@ Logger::Logger(Isolate* isolate)
       perf_jit_logger_(NULL),
       ll_logger_(NULL),
       jit_logger_(NULL),
+      gr_code_info_logger_(NULL),
       listeners_(5),
       is_initialized_(false) {}
 
@@ -1750,6 +1825,8 @@ bool Logger::SetUp(Isolate* isolate) {
     profiler_->Engage();
   }
 
+  gr_code_info_logger_ = new GrCodeInfoLogger();
+
   profiler_listener_.reset();
 
   if (is_logging_) {
@@ -1790,6 +1867,13 @@ void Logger::SetUpProfilerListener() {
 void Logger::TearDownProfilerListener() {
   if (profiler_listener_->HasObservers()) return;
   removeCodeEventListener(profiler_listener_.get());
+}
+
+FILE* Logger::CodeInfoGetFP() {
+  if(!gr_code_info_logger_) return NULL;
+
+  return gr_code_info_logger_->getFP();
+  
 }
 
 sampler::Sampler* Logger::sampler() {
@@ -1838,6 +1922,12 @@ FILE* Logger::TearDown() {
   if (profiler_listener_.get() != nullptr) {
     removeCodeEventListener(profiler_listener_.get());
   }
+
+  if (gr_code_info_logger_) {
+    delete gr_code_info_logger_;
+    gr_code_info_logger_ = NULL;
+  }
+  
 
   return log_->Close();
 }

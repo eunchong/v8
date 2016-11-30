@@ -221,7 +221,7 @@ Handle<Code> CodeGenerator::GenerateCode() {
   result->set_safepoint_table_offset(safepoints()->GetCodeOffset());
   Handle<ByteArray> source_positions =
       source_position_table_builder_.ToSourcePositionTable(
-          isolate(), Handle<AbstractCode>::cast(result));
+          isolate(), Handle<AbstractCode>::cast(result),this->info());
   result->set_source_position_table(*source_positions);
 
   // Emit exception handler table.

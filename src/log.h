@@ -62,6 +62,7 @@ namespace internal {
 // Forward declarations.
 class CodeEventListener;
 class CpuProfiler;
+class GrCodeInfoLogger;
 class Isolate;
 class JitLogger;
 class Log;
@@ -102,6 +103,8 @@ class Logger : public CodeEventListener {
 
   // Tear down ProfilerListener if it has no observers.
   void TearDownProfilerListener();
+
+  FILE* CodeInfoGetFP();
 
   sampler::Sampler* sampler();
 
@@ -325,6 +328,7 @@ class Logger : public CodeEventListener {
   PerfJitLogger* perf_jit_logger_;
   LowLevelLogger* ll_logger_;
   JitLogger* jit_logger_;
+  GrCodeInfoLogger* gr_code_info_logger_;
   std::unique_ptr<ProfilerListener> profiler_listener_;
   List<CodeEventListener*> listeners_;
 

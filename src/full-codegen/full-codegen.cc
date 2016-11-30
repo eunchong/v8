@@ -120,12 +120,84 @@ bool FullCodeGenerator::MakeCode(CompilationInfo* info, uintptr_t stack_limit) {
   code->set_allow_osr_at_loop_nesting_level(0);
   code->set_profiler_ticks(0);
   code->set_back_edge_table_offset(table_offset);
+  // PrintF("FullCodeGenerator::MakeCode :: ToSourcePositionTable\n"); // GRLOG
   Handle<ByteArray> source_positions =
       cgen.source_position_table_builder_.ToSourcePositionTable(
-          isolate, Handle<AbstractCode>::cast(code));
+          isolate, Handle<AbstractCode>::cast(code),info);
   code->set_source_position_table(*source_positions);
   CodeGenerator::PrintCode(code, info);
   info->SetCode(code);
+
+  // AllowDeferredHandleDereference allow_deference_for_print_code;
+  // // Isolate* isolate = info->isolate();
+  // bool print_code = true;
+  // if (print_code) {
+  //   std::unique_ptr<char[]> debug_name = info->GetDebugName();
+  //   CodeTracer::Scope tracing_scope(info->isolate()->GetCodeTracer());
+  //   OFStream os(tracing_scope.file());
+
+  //   // Print the source code if available.
+  //   bool print_source =
+  //       info->parse_info() && (code->kind() == Code::OPTIMIZED_FUNCTION ||
+  //                              code->kind() == Code::FUNCTION);
+  //   if (print_source) {
+  //     Handle<SharedFunctionInfo> shared = info->shared_info();
+  //     // Handle<Script> script = info->script();
+
+
+  //     int source_pos = shared->start_position();
+  //     Object* maybe_script = shared->script();
+  //     if (maybe_script->IsScript()) {
+  //       Script* script = Script::cast(maybe_script);
+  //       int line = script->GetLineNumber(source_pos) + 1;
+  //       Object* script_name_raw = script->name();
+  //       if (script_name_raw->IsString()) {
+  //         String* script_name = String::cast(script->name());
+  //         std::unique_ptr<char[]> c_script_name =
+  //             script_name->ToCString(DISALLOW_NULLS, ROBUST_STRING_TRAVERSAL);
+  //         PrintF(" at %s:%d\n", c_script_name.get(), line);
+  //       } else {
+  //         PrintF(" at <unknown>:%d\n", line);
+  //       }
+  //     } else {
+  //       PrintF(" at <unknown>:<unknown>");
+  //     }
+
+
+  //     // if (!script->IsUndefined(isolate) &&
+  //     //     !script->source()->IsUndefined(isolate)) {
+  //     //   os << "--- Raw source ---\n";
+  //     //   StringCharacterStream stream(String::cast(script->source()),
+  //     //                                shared->start_position());
+  //     //   // fun->end_position() points to the last character in the stream. We
+  //     //   // need to compensate by adding one to calculate the length.
+  //     //   int source_len = shared->end_position() - shared->start_position() + 1;
+  //     //   for (int i = 0; i < source_len; i++) {
+  //     //     if (stream.HasMore()) {
+  //     //       os << AsReversiblyEscapedUC16(stream.GetNext());
+  //     //     }
+  //     //   }
+  //     //   os << "\n\n";
+  //     // }
+  //   }
+  //   // if (info->IsOptimizing()) {
+  //   //   if (FLAG_print_unopt_code && info->parse_info()) {
+  //   //     os << "--- Unoptimized code ---\n";
+  //   //     info->closure()->shared()->code()->Disassemble(debug_name.get(), os);
+  //   //   }
+  //   //   os << "--- Optimized code ---\n"
+  //   //      << "optimization_id = " << info->optimization_id() << "\n";
+  //   // } else {
+  //   //   os << "--- Code ---\n";
+  //   // }
+  //   // if (print_source) {
+  //   //   Handle<SharedFunctionInfo> shared = info->shared_info();
+  //   //   os << "source_position = " << shared->start_position() << "\n";
+  //   // }
+  //   // code->Disassemble(debug_name.get(), os);
+  //   // os << "--- End code ---\n";
+  // }
+
 
 #ifdef DEBUG
   // Check that no context-specific object has been embedded.
@@ -666,6 +738,8 @@ void FullCodeGenerator::SetReturnPosition(FunctionLiteral* fun) {
   // is no source code besides the class literal.
   int pos = std::max(fun->start_position(), fun->end_position() - 1);
   RecordStatementPosition(pos);
+  // PrintF("FullCodeGenerator::SetReturnPosition\n");
+  // DebugCodegen::GenerateSlot(masm_, RelocInfo::DEBUG_BREAK_SLOT_AT_RETURN);
   if (info_->is_debug()) {
     // Always emit a debug break slot before a return.
     DebugCodegen::GenerateSlot(masm_, RelocInfo::DEBUG_BREAK_SLOT_AT_RETURN);
@@ -676,7 +750,12 @@ void FullCodeGenerator::SetReturnPosition(FunctionLiteral* fun) {
 void FullCodeGenerator::SetStatementPosition(
     Statement* stmt, FullCodeGenerator::InsertBreak insert_break) {
   if (stmt->position() == kNoSourcePosition) return;
+
   RecordStatementPosition(stmt->position());
+  __ CallRuntime(Runtime::kTraceEnter);
+  
+  // PrintF("FullCodeGenerator::SetStatementPosition\n");
+  // DebugCodegen::GenerateSlot(masm_, RelocInfo::DEBUG_BREAK_SLOT_AT_POSITION);
   if (insert_break == INSERT_BREAK && info_->is_debug() &&
       !stmt->IsDebuggerStatement()) {
     DebugCodegen::GenerateSlot(masm_, RelocInfo::DEBUG_BREAK_SLOT_AT_POSITION);
@@ -692,6 +771,8 @@ void FullCodeGenerator::SetExpressionPosition(Expression* expr) {
 void FullCodeGenerator::SetExpressionAsStatementPosition(Expression* expr) {
   if (expr->position() == kNoSourcePosition) return;
   RecordStatementPosition(expr->position());
+  // PrintF("FullCodeGenerator::SetExpressionAsStatementPosition\n");
+  // DebugCodegen::GenerateSlot(masm_, RelocInfo::DEBUG_BREAK_SLOT_AT_POSITION);
   if (info_->is_debug()) {
     DebugCodegen::GenerateSlot(masm_, RelocInfo::DEBUG_BREAK_SLOT_AT_POSITION);
   }
@@ -701,6 +782,16 @@ void FullCodeGenerator::SetCallPosition(Expression* expr,
                                         TailCallMode tail_call_mode) {
   if (expr->position() == kNoSourcePosition) return;
   RecordPosition(expr->position());
+  __ CallRuntime(Runtime::kTraceEnter);
+  // PrintF("FullCodeGenerator::SetCallPosition\n");
+
+  // RelocInfo::Mode mode = (tail_call_mode == TailCallMode::kAllow)
+                             // ? RelocInfo::DEBUG_BREAK_SLOT_AT_TAIL_CALL
+                             // : RelocInfo::DEBUG_BREAK_SLOT_AT_CALL;
+  // Always emit a debug break slot before a call.
+  // DebugCodegen::GenerateSlot(masm_, mode);
+
+
   if (info_->is_debug()) {
     RelocInfo::Mode mode = (tail_call_mode == TailCallMode::kAllow)
                                ? RelocInfo::DEBUG_BREAK_SLOT_AT_TAIL_CALL

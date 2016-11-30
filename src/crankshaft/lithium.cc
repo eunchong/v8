@@ -463,7 +463,7 @@ Handle<Code> LChunk::Codegen() {
     CommitDependencies(code);
     Handle<ByteArray> source_positions =
         generator.source_position_table_builder()->ToSourcePositionTable(
-            info()->isolate(), Handle<AbstractCode>::cast(code));
+            info()->isolate(), Handle<AbstractCode>::cast(code),info());
     code->set_source_position_table(*source_positions);
     code->set_is_crankshafted(true);
 

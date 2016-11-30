@@ -16,6 +16,7 @@ namespace internal {
 class AbstractCode;
 class BytecodeArray;
 class ByteArray;
+class CompilationInfo;
 class Isolate;
 class Zone;
 
@@ -40,7 +41,8 @@ class SourcePositionTableBuilder {
   void AddPosition(size_t code_offset, int source_position, bool is_statement);
 
   Handle<ByteArray> ToSourcePositionTable(Isolate* isolate,
-                                          Handle<AbstractCode> code);
+                                          Handle<AbstractCode> code,
+                                          CompilationInfo* info);
 
  private:
   void AddEntry(const PositionTableEntry& entry);
